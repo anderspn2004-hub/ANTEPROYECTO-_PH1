@@ -11,6 +11,8 @@
 \usepackage{amsmath,amssymb}
 \usepackage{graphicx}
 \usepackage{float}
+\usepackage{flafter}
+\usepackage[section]{placeins}
 \usepackage{caption}
 \usepackage{titlesec}
 \usepackage{enumitem}
@@ -33,7 +35,12 @@
 \setlength{\parskip}{6.5pt plus 1pt minus 0.5pt}
 \setlist{topsep=0pt,itemsep=1pt,parsep=1pt,leftmargin=2.3em}
 \setlist[itemize]{label={\tiny$\blacksquare$}}
-\setlength{\textfloatsep}{8pt}
+\setlength{\textfloatsep}{10pt plus 2pt}
+\setlength{\floatsep}{8pt}
+\renewcommand{\topfraction}{0.95}\renewcommand{\bottomfraction}{0.9}
+\renewcommand{\textfraction}{0.04}\renewcommand{\floatpagefraction}{0.85}
+\makeatletter\setlength{\@fptop}{0pt}\makeatother
+\setcounter{topnumber}{3}\setcounter{bottomnumber}{2}\setcounter{totalnumber}{4}
 \setlength{\intextsep}{8pt}
 \setlength{\abovedisplayskip}{4pt}
 \setlength{\belowdisplayskip}{4pt}
@@ -59,7 +66,7 @@
 
 % \figura{etiqueta}{archivo}{leyenda corta}{leyenda}
 \newcommand{\figura}[4]{%
-  \begin{figure}[H]\centering
+  \begin{figure}[!htb]\centering
   \includegraphics{figuras/#2}
   \caption[#3]{#4}\label{#1}
   \end{figure}}
@@ -71,7 +78,7 @@
   \end{minipage}}
 % \tabla{etiqueta}{archivo}{título}
 \newcommand{\tabla}[3]{%
-  \begin{table}[H]\centering
+  \begin{table}[!htb]\centering
   \caption{#3}\label{#1}
   \includegraphics{tablas/#2}
   \end{table}}

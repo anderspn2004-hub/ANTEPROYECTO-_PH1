@@ -86,6 +86,10 @@ donde $R$ es la constante de los gases, $F$ la de Faraday y $T$ la temperatura a
 
 En un sensor analógico, el electrodo se cablea hasta un acondicionador de muy alta impedancia y un convertidor analógico-digital, y cada eslabón añade incertidumbre. Una sonda digital integra todo eso y entrega el pH ya calculado por un bus. La de este trabajo (figura~\ref{fig:sonda}) se comunica por Modbus RTU sobre RS-485, declara una exactitud de $\pm0{,}1$\,pH y una resolución de 0,01\,pH en un rango de 0 a 14, compensa la temperatura internamente y se alimenta de 12 a 24\,V [57]. Con ella, la cuantización y el ruido del cable quedan dentro de la exactitud declarada, y una interferencia produce una trama corrupta o perdida, más fácil de detectar que una lectura ruidosa. La desventaja es que no expone la tensión del electrodo: su pendiente no puede medirse desde fuera, y su estado se comprueba con el error en un punto de verificación independiente.
 
+\begin{figure}[H]\centering
+\foto{fig:sonda}{fig07.pdf}{Sonda digital de pH Veinasa-PH06}{Sonda digital de pH Veinasa-PH06. Imagen del manual del fabricante [57].}
+\end{figure}
+
 \subsubsection{Incertidumbre de medida y calibración}\label{sec:incertidumbre}
 Los términos son los del Vocabulario Internacional de Metrología [38]. El error de medida es la diferencia entre el valor medido y un valor de referencia. La resolución es la menor variación que produce un cambio perceptible de la indicación. La repetibilidad es la concordancia entre mediciones repetidas en las mismas condiciones y en un intervalo corto, y la deriva, la variación continua de la indicación con el tiempo. La Guía para la Expresión de la Incertidumbre de Medida (GUM) establece cómo se combinan las contribuciones [39]. Las de tipo A se evalúan con estadística sobre observaciones repetidas ($u=s/\sqrt{n}$ para la media de $n$ lecturas); las de tipo B, con información previa, como las especificaciones del fabricante ($u=a/\sqrt{3}$ para un semiancho $a$ con distribución rectangular). Para un mensurando $y=f(x_1,\dots,x_N)$ con entradas no correlacionadas,
 \begin{equation}
@@ -110,8 +114,7 @@ Con un error de 0,5\,°C, en pH 5,5 son unos 0,0025\,pH (figura~\ref{fig:temp}b)
 
 La compensación de la sonda tiene tres limitaciones: corrige solo la pendiente, supone que su sensor está a la temperatura de la membrana y el fabricante no documenta el algoritmo [57]. Las dos primeras se mantienen pequeñas ensayando dentro de una ventana estrecha y con variaciones lentas. La tercera se aborda desde fuera, con una sonda de temperatura independiente: un sensor digital DS18B20 en vaina de acero inoxidable (figura~\ref{fig:ds18b20}), con una exactitud de $\pm0{,}5$\,°C entre $-10$ y $+85$\,°C, bus 1-Wire y una resolución de 0,0625\,°C a 12 bits [58]. La compensación se verifica de dos maneras, sin ensayos adicionales: comparando la temperatura interna que la sonda de pH entrega por Modbus con la del DS18B20, y leyendo el patrón de 9,18, cuyo valor nominal depende de la temperatura (tabla~\ref{tab:patrones}): a 22\,°C vale 9,21, y contrastarlo con el nominal atribuiría a la sonda un error de 0,03\,pH que procede del patrón.
 
-\begin{figure}[H]\centering
-\foto{fig:sonda}{fig07.pdf}{Sonda digital de pH Veinasa-PH06}{Sonda digital de pH Veinasa-PH06. Imagen del manual del fabricante [57].}\hspace{10mm}
+\begin{figure}[!htb]\centering
 \foto{fig:ds18b20}{fig09.pdf}{Sonda de temperatura DS18B20}{Sonda de temperatura DS18B20 en vaina de acero inoxidable, DFRobot DFR0198 [58].}
 \end{figure}
 
@@ -249,8 +252,8 @@ U\ \le\ \delta\ \le\ 0{,}5-U\label{eq:banda}
 \end{equation}
 Con $U\approx0{,}12$\,pH va de 0,12 a 0,38\,pH, y este trabajo toma su centro, $\delta=0{,}25$\,pH (figura~\ref{fig:banda}). El mismo criterio se aplica a los resultados: un error de regulación que no excede $U$ no se distingue de la incertidumbre de la medición, y así se declara.
 
-\begin{figure}[H]\centering
-\includegraphics[scale=0.88]{figuras/fig16.pdf}
+\begin{figure}[!htb]\centering
+\includegraphics{figuras/fig16.pdf}
 \caption[Criterio de banda de guarda aplicado a la zona muerta]{Criterio de banda de guarda aplicado a la zona muerta, dibujado a escala con $U=0{,}12$\,pH. (a) Rango objetivo, intervalo de aceptación del pH medido y zona muerta de semiancho $\delta=0{,}25$\,pH: aunque el pH medido quede en el borde de la zona muerta, el real sigue dentro del rango. (b) Intervalo admisible de $\delta$ según la ecuación~\eqref{eq:banda}. Elaborado por los autores (A. Morocho y K. Toledo, TikZ, 2026).}\label{fig:banda}
 \end{figure}
 
