@@ -1,0 +1,133 @@
+% Anteproyecto: control del pH de soluciones hidropónicas (versión condensada)
+% Reconstruido a partir del PDF original (original/anteproyecto_original.pdf).
+% La portada, los capítulos I a III, el cronograma, el presupuesto y las
+% referencias se insertan tal cual desde el PDF original.
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish,es-tabla,es-nolists,es-nodecimaldot]{babel}
+\usepackage{times}
+\usepackage[a4paper,left=14.3mm,right=14.3mm,top=18mm,bottom=25mm,footskip=8.5mm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{pdfpages}
+\usepackage[titles]{tocloft}
+\setlength{\cftsecnumwidth}{2.8em}
+\setlength{\cftsubsecnumwidth}{3.0em}
+\setlength{\cftsubsubsecnumwidth}{3.6em}
+\setlength{\cftfignumwidth}{2.6em}
+\setlength{\cfttabnumwidth}{3.4em}
+\setlength{\cftbeforesecskip}{5pt}
+\usepackage[hidelinks]{hyperref}
+
+\newcommand{\original}{original/anteproyecto_original.pdf}
+
+% --- Tipografía y espaciado como en el original
+\linespread{1.0}
+\setlength{\parindent}{1em}
+\setlength{\parskip}{6.5pt plus 1pt minus 0.5pt}
+\setlist{topsep=0pt,itemsep=1pt,parsep=1pt,leftmargin=2.3em}
+\setlist[itemize]{label={\tiny$\blacksquare$}}
+\setlength{\textfloatsep}{8pt}
+\setlength{\intextsep}{8pt}
+\setlength{\abovedisplayskip}{4pt}
+\setlength{\belowdisplayskip}{4pt}
+\setlength{\abovedisplayshortskip}{2pt}
+\setlength{\belowdisplayshortskip}{4pt}
+
+% --- Numeración de apartados al estilo IEEE
+\renewcommand{\thesection}{\Roman{section}}
+\renewcommand{\thesubsection}{\thesection-\Alph{subsection}}
+\renewcommand{\thesubsubsection}{\thesubsection\arabic{subsubsection}}
+\renewcommand{\thetable}{\Roman{table}}
+\titleformat{\section}{\centering\normalfont\scshape}{\thesection.}{0.8em}{}
+\titleformat{\subsection}{\normalfont\itshape}{\thesubsection.}{0.8em}{}
+\titleformat{\subsubsection}[runin]{\normalfont\itshape}{\hspace{\parindent}\thesubsubsection.}{0.8em}{}[:]
+\titlespacing*{\section}{0pt}{6pt}{4pt}
+\titlespacing*{\subsection}{0pt}{8pt}{2pt}
+\titlespacing*{\subsubsection}{0pt}{0pt}{0.6em}
+
+% --- Leyendas
+\captionsetup{font=footnotesize}
+\captionsetup[figure]{labelsep=period,justification=justified,singlelinecheck=false,skip=6pt}
+\captionsetup[table]{labelsep=newline,textfont=sc,justification=centering,skip=4pt}
+
+% \figura{etiqueta}{archivo}{leyenda corta}{leyenda}
+\newcommand{\figura}[4]{%
+  \begin{figure}[H]\centering
+  \includegraphics{figuras/#2}
+  \caption[#3]{#4}\label{#1}
+  \end{figure}}
+% \foto{etiqueta}{archivo}{leyenda corta}{leyenda}: fotografías estrechas
+\newcommand{\foto}[4]{%
+  \begin{minipage}[t]{56mm}\centering
+  \includegraphics{figuras/#2}
+  \captionof{figure}[#3]{#4}\label{#1}
+  \end{minipage}}
+% \tabla{etiqueta}{archivo}{título}
+\newcommand{\tabla}[3]{%
+  \begin{table}[H]\centering
+  \caption{#3}\label{#1}
+  \includegraphics{tablas/#2}
+  \end{table}}
+
+% Página del PDF original con el número de página renovado
+\newcommand{\paginaoriginal}[2][]{%
+  \includepdf[pages={#2},pagecommand={\thispagestyle{plain}#1},
+    picturecommand={\put(262,40){\color{white}\rule{70pt}{38pt}}}]{\original}}
+
+\newcommand{\Vmin}{V_{\text{mín,rep}}}
+\newcommand{\klote}{k_{\text{lote}}}
+\newcommand{\pHm}[1]{\mathrm{pH}_{\text{#1}}}
+
+\begin{document}
+
+% --- Portada (original)
+\includepdf[pages=1]{\original}
+
+% --- Índices
+\pagestyle{empty}
+{\setlength{\parskip}{0pt}
+\tableofcontents\thispagestyle{empty}
+\clearpage
+\listoffigures\thispagestyle{empty}
+\clearpage
+\listoftables\thispagestyle{empty}
+\clearpage}
+
+% --- I Problema, II Justificación, III Objetivos (páginas originales, sin cambios)
+\setcounter{page}{1}
+\includepdf[pages=6,pagecommand={\thispagestyle{empty}\refstepcounter{section}\label{sec:problema}%
+  \addcontentsline{toc}{section}{\protect\numberline{\thesection}Problema}}]{\original}
+\includepdf[pages=7,pagecommand={\thispagestyle{empty}\refstepcounter{section}\label{sec:justificacion}%
+  \addcontentsline{toc}{section}{\protect\numberline{\thesection}Justificación}}]{\original}
+\includepdf[pages=8,pagecommand={\thispagestyle{empty}\refstepcounter{section}\label{sec:objetivos}%
+  \addcontentsline{toc}{section}{\protect\numberline{\thesection}Objetivos}%
+  \refstepcounter{subsection}\addcontentsline{toc}{subsection}{\protect\numberline{\thesubsection}Objetivo general}%
+  \refstepcounter{subsection}\addcontentsline{toc}{subsection}{\protect\numberline{\thesubsection}Objetivos específicos}}]{\original}
+
+\pagestyle{plain}
+\setcounter{page}{4}
+
+\input{capitulos/marco_teorico}
+\clearpage
+\input{capitulos/marco_metodologico}
+\clearpage
+
+% --- VI Cronograma, VII Presupuesto y Referencias (páginas originales)
+\paginaoriginal[\refstepcounter{section}\label{sec:cronograma}%
+  \addcontentsline{toc}{section}{\protect\numberline{\thesection}Cronograma}%
+  \refstepcounter{table}\addcontentsline{lot}{table}{\protect\numberline{\thetable}Cronograma de actividades del proyecto}]{60}
+\paginaoriginal[\refstepcounter{section}\label{sec:presupuesto}%
+  \addcontentsline{toc}{section}{\protect\numberline{\thesection}Presupuesto}%
+  \refstepcounter{table}\addcontentsline{lot}{table}{\protect\numberline{\thetable}Presupuesto referencial del prototipo, en dólares estadounidenses}]{61}
+\paginaoriginal{62}
+\paginaoriginal[\addcontentsline{toc}{section}{Referencias}]{63}
+\paginaoriginal{64-67}
+
+\end{document}

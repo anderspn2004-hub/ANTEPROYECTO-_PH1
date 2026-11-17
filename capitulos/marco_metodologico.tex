@@ -1,0 +1,280 @@
+\section{Marco Metodológico}\label{sec:mm}
+
+La metodología sigue el orden en que se construye y se evalúa el prototipo (figura~\ref{fig:metodologia}). Primero se fijan los requerimientos de medición y dosificación. Después se diseñan, se construyen y se ponen en marcha la electrónica y el banco. Luego se caracterizan la medición y las bombas, se mide la curva de titulación y se comprueba que la menor dosis no cambie el pH más de la mitad del margen de error; si lo cambia, se diluye más el reactivo. Por último, se diseña el control, se implementa en el firmware y se valida su desempeño.
+
+\begin{figure}[H]\centering
+\includegraphics[scale=0.9]{figuras/fig17.pdf}
+\caption[Diagrama de flujo de la metodología]{Diagrama de flujo de la metodología, en el orden de los apartados de este capítulo. El único lazo es el de la regla de dimensionamiento: si la menor dosis cambia el pH más de $U/2$, se diluye más el reactivo y se repite la comprobación. Elaborado por los autores (A. Morocho y K. Toledo, TikZ, 2026).}\label{fig:metodologia}
+\end{figure}
+
+% =====================================================================
+\subsection{Arquitectura del prototipo}\label{sec:arq}
+
+Antes de construir el prototipo se fija qué debe cumplir. De este apartado sale la tabla de requerimientos, que responde al primer objetivo y es el criterio de aceptación de las caracterizaciones.
+
+\subsubsection{Requerimientos de medición y dosificación}\label{sec:req}
+Los requerimientos parten de cinco factores: el rango de pH, el volumen de solución, los reactivos, el margen de error admisible en la medición y las condiciones de funcionamiento. La tabla~\ref{tab:req} da el valor de partida de cada uno y lo que fija, y añade la dosis de las bombas, que es el dato del actuador. La dilución del reactivo es la variable de diseño con la que se cumplen.
+
+\tabla{tab:req}{tab07.pdf}{Requerimientos de medición y dosificación}
+
+La menor dosis se dimensiona con la regla de la ecuación~\eqref{eq:regla}: su efecto sobre el pH, calculado con la ganancia local en cada punto del rango objetivo, no debe superar $U/2$. La regla es una propuesta propia de este trabajo. No procede de una norma ni de los documentos revisados, y se apoya en dos argumentos:
+\begin{itemize}
+\item Una dosis no debe poder saltar la zona muerta entera. Para eso su efecto debe ser menor que el ancho de esa zona, $2\delta$. Como $\delta\ge U$, basta con que no llegue a $2U$, y el límite $U/2$ deja un margen de cuatro veces.
+\item Dosificar en revoluciones enteras redondea el volumen, y ese redondeo se comporta como un error de resolución. Con un paso de pH $q$, su incertidumbre típica es $q/\sqrt{12}$ [39]. Con $q=U/2$ vale 0,29 veces la incertidumbre típica de la medición y, sumada en cuadratura, la aumenta solo un 4\,\%.
+\end{itemize}
+Con los valores \emph{a priori}, una revolución entrega 0,314\,mL y, con el reactivo diluido 1:10, la ganancia en la consigna es de 0,0554\,pH/mL (tabla~\ref{tab:beta}): esa dosis mueve el pH menos de 0,02 unidades, por debajo de $U/2=0{,}06$\,pH. Según el modelo, la regla es conservadora: con factores de dilución de 1 a 22,8 y zonas muertas de 0,25 y 0,12\,pH, las dos bombas no llegan a alternarse aunque la regla se incumpla. Se trata por eso como un criterio de diseño que debe comprobarse (apartado~\ref{sec:planta}), y no como un límite demostrado.
+
+\subsubsection{Organización del prototipo}\label{sec:org}
+El prototipo se organiza en cuatro capas, que reproducen la estructura de un sistema de control de pH industrial a escala de banco: medición, control, actuación y alimentación (figura~\ref{fig:arq}). Se montan sobre un banco hidráulico de reservorio único, que es la planta. Cada requerimiento recae sobre una parte: la incertidumbre, sobre la capa de medición; la dosis mínima repetible, sobre la de actuación y la dilución del reactivo, y la zona muerta, sobre la ley de control que ejecuta el microcontrolador.
+
+\figura{fig:arq}{fig18.pdf}{Arquitectura del prototipo en cuatro capas}{Arquitectura del prototipo en cuatro capas: medición, control, actuación y alimentación. Los distintivos de color indican de qué fuente se alimenta cada elemento; la sonda de pH tiene su propia fuente de 12\,V aislada. Las líneas azules representan el contacto con la solución del depósito T1, cuya disposición hidráulica se describe más adelante. Es un diagrama del diseño propuesto, no del prototipo construido. Elaborado por los autores (A. Morocho y K. Toledo, TikZ, 2026).}
+
+\subsubsection{Alcance y condiciones de funcionamiento}\label{sec:alcance}
+El prototipo se evalúa en un depósito de laboratorio, con 10\,L de solución nutritiva de composición declarada, preparada de nuevo para cada sesión, con recirculación y sin plantas. Con un cultivo, la absorción de nutrientes añadiría una perturbación lenta, distinta en cada ensayo, que no puede repetirse ni medirse de forma práctica. Sin él, la perturbación se aplica de forma estandarizada y los resultados pueden atribuirse al controlador. Esos resultados describen el desempeño del control en el banco, no en un cultivo ni en una instalación de producción. Quedan fuera del alcance, como trabajo futuro, el cultivo vegetal y la operación en flujo continuo, el control de la conductividad eléctrica, la telemetría y la optimización del consumo energético. Ninguna de estas exclusiones afecta a los objetivos.
+
+Dentro de ese alcance, el trabajo declara estas limitaciones:
+\begin{itemize}
+\item Los patrones no tienen certificado de lote, y la incertidumbre no es trazable al SI.
+\item La sonda no expone la tensión del electrodo: su pendiente no se mide y se sustituye por el error en el patrón 9,18.
+\item Hay un solo banco y tres sesiones de la perturbación principal: se evalúan la repetibilidad y la precisión intermedia, no la reproducibilidad.
+\item La perturbación hacia la base y la ley de dosis fija se ensayan en una sola sesión cada una, con dos corridas: sus resultados son descriptivos.
+\item Los resultados valen dentro de la ventana de $22\pm3$\,°C.
+\end{itemize}
+
+% =====================================================================
+\subsection{Diseño electrónico}\label{sec:elec}
+
+La electrónica se define con tres decisiones: qué componentes se usan, cómo se conectan y cómo se alimentan y protegen. El resultado es el esquema de conexiones con que se monta el banco (figura~\ref{fig:esquema}), dentro del segundo objetivo.
+
+\subsubsection{Selección de componentes}
+Los componentes se eligen a partir de los requerimientos de la tabla~\ref{tab:req}. La tabla~\ref{tab:componentes} indica, para cada función, qué se utiliza, por qué y qué alternativa se descartó.
+
+\tabla{tab:componentes}{tab08.pdf}{Selección de los componentes}
+
+\subsubsection{Circuitos de medición y de actuación}\label{sec:circuitos}
+La sonda de pH se comunica por Modbus RTU sobre RS-485 a 9600 baudios, con 8 bits de datos, sin paridad y un bit de parada, y con la dirección 6 [57]. Se conecta a una USART del microcontrolador a través de un convertidor TTL a RS-485 con aislamiento galvánico, porque el enlace diferencial no aísla por sí mismo. Se alimenta con una fuente de 12\,V dedicada solo a ella, cuya masa no se une a la de los demás rieles, para que la alimentación no puentee el aislamiento del convertidor. La sonda de temperatura DS18B20 se lee por el bus 1-Wire a 12 bits, con una sola resistencia de polarización de 4,7\,k$\Omega$ a 3,3\,V [58]. Antes de la primera medición se comprueba con un polímetro si su vaina metálica está unida a la masa del microcontrolador: si lo estuviera, uniría las masas a través de la solución y habría que cambiar el montaje.
+
+Cada bomba peristáltica se acciona con un controlador TMC2209 en formato \emph{stepstick}, configurado a 1/8 de micropaso con las patillas MS1 y MS2 sin conectar [61]. El microcontrolador le entrega las señales STEP, DIR y de habilitación. Los 24\,V de los controladores pasan por el canal 2 del módulo de relés, que el firmware cierra al arrancar una dosis y abre cuando los dos motores se detienen o cuando entra en fallo. Si el programa se bloquea, el temporizador de vigilancia reinicia la placa, que arranca con los relés abiertos: las bombas quedan sin potencia aunque la señal de habilitación siga activa. El motor de la bomba es de dos fases, 1,2\,A y 20\,W [72]; su corriente se ajusta con el potenciómetro del controlador a unos 0,7\,A ($V_{\text{ref}}\approx1{,}0$\,V), y solo se sube si la bomba pierde pasos. La bomba de recirculación se alimenta del mismo riel a través de un reductor de tensión ajustable, con el que se fija su caudal de trabajo; se enciende y se apaga con el canal 1 del módulo de relés, y un diodo de descarga en sus bornes absorbe el pico de tensión al abrirse el contacto.
+
+\subsubsection{Alimentación, protección y compatibilidad eléctrica}\label{sec:alim}
+La alimentación se reparte en tres rieles: uno de 24\,V y al menos 3\,A, para los dos controladores de motor y la recirculación; uno de 5\,V para las bobinas del módulo de relés, conectado a su entrada JD-VCC con el puente retirado, y la fuente aislada de 12\,V de la sonda de pH. La masa del riel de 24\,V y la de la placa se unen en un solo punto; las de 5 y 12\,V no se unen a ella. Cada riel sale de una fuente con protección interna contra sobrecarga y cortocircuito, y el banco se conecta a un tomacorriente protegido por un interruptor diferencial. Para detenerlo por completo se desenchufa: su clavija queda accesible y fuera de la zona húmeda. La electrónica va en un gabinete estanco, con entrada de cables por prensaestopas y separado de los líquidos. La secuencia de operación añade una separación en el tiempo, porque medir, dosificar y esperar evita interrogar a la sonda con las bombas en marcha.
+
+En el riel de 24\,V, el enclavamiento impide que las dos bombas de reactivo trabajen a la vez. El peor caso es una de ellas, de hasta 20\,W, más la recirculación a plena tensión, de 19\,W: unos 1,8\,A, frente a los 5\,A de la fuente disponible. El módulo de relés toma unos 0,16\,A de su fuente de 5\,V, y la sonda de pH, unos 25\,mA [57]. La corriente real de cada riel se mide en la puesta en marcha. La placa toma sus 5\,V del puerto USB del computador, por el que también salen los datos. En las corridas, el computador trabaja con su batería, para no introducir por el USB la tierra de la red; los barridos de titulación duran más que esa batería, y la tasa de tramas erróneas que el firmware anota en cada punto muestra si esa conexión afecta al enlace.
+
+Los niveles de cada conexión son compatibles: las salidas de la placa son de 3,3\,V, y tanto el controlador de motor [61] como el lado lógico del convertidor RS-485 admiten lógica de 3,3 a 5\,V; el DS18B20 admite de 3,0 a 5,5\,V [58], y la sonda de pH, de 12 a 24\,V [57]. Las entradas del módulo de relés son activas por nivel bajo, y sus contactos están marcados para 10\,A a 30\,V de continua. La figura~\ref{fig:esquema} reúne las conexiones, con el pin de la placa que usa cada señal.
+
+\figura{fig:esquema}{fig19.pdf}{Esquema de conexiones eléctricas del prototipo}{Esquema de conexiones eléctricas del prototipo. Los símbolos de riel (+24V, +3V3, GND y los demás) indican a qué alimentación va cada pin, en lugar de dibujar todos los cables, y entre paréntesis se indica la serigrafía del pin en la placa. Es un esquema del diseño propuesto, no del prototipo construido. Elaborado por los autores (A. Morocho y K. Toledo, KiCad, 2026).}
+
+% =====================================================================
+\subsection{Diseño hidráulico y mecánico del banco}\label{sec:hid}
+
+El banco es donde se ensaya el control. Su diseño fija los depósitos, el recorrido de cada líquido, la posición de las sondas y el bastidor que lo sostiene (figura~\ref{fig:pid}).
+
+\subsubsection{Arquitectura hidráulica}\label{sec:archid}
+El banco es una torre de reservorio único, con tres depósitos. T1 contiene la solución de trabajo: 10\,L útiles, marcados sobre un recipiente de 12 a 15\,L; aloja la sonda de pH, la de temperatura y la aspiración de la recirculación, y es el objeto de control. T3 y T4, de 2\,L cada uno, contienen el ácido y la base diluidos, sobre una bandeja de contención de al menos 5\,L; el venteo de T4 lleva cal sodada, para que el KOH no absorba CO$_2$ del aire. No hay depósito de reposición: reponer agua durante la corrida cambiaría a la vez el volumen, la alcalinidad y la capacidad tampón, y el consumo observado no podría atribuirse a la acción de control.
+
+Cada sesión parte de un lote fresco, que se prepara a mano en T1. Se pone agua de red por debajo de la marca, se añaden las soluciones A, B y C por separado con la recirculación en marcha, y se enrasa a 10\,L: con un solo recipiente, el orden de adición es la única barrera frente a la precipitación. La descarga de la recirculación cae al aire sobre la superficie de T1, de modo que el sistema es abierto al CO$_2$ por decisión de diseño. Con el retorno sumergido, la solución conservaría la capacidad tampón del carbonato del agua de red: corregir la perturbación de los ensayos exigiría unos 253\,mL de reactivo en lugar de 30, según el modelo, y el límite de volumen acumulado abortaría corridas legítimas. A cambio, cada lote necesita un pre-despojo, para que el CO$_2$ escape antes de la corrida: se acidifica el lote a la consigna, se recircula sin dosificar hasta que el pH alcanza una meseta, y se reajusta a la consigna hasta que el pH se mantiene estable. Sin acidificar, la recirculación solo retiraría el CO$_2$ en exceso, y el bicarbonato permanecería en el lote.
+
+\figura{fig:pid}{fig20.pdf}{Diagrama P\&ID del banco}{Diagrama P\&ID del banco. Las líneas continuas son de proceso, y las discontinuas, de señal. T3 y T4 quedan por debajo del nivel de líquido de T1, y el reactivo gotea en el chorro de retorno desde un hueco de aire. No está a escala; es un diagrama del diseño propuesto, no del prototipo construido. Elaborado por los autores (A. Morocho y K. Toledo, TikZ, 2026).}
+
+\subsubsection{Elementos de diseño y mantenimiento}\label{sec:elementos}
+El reactivo se dosifica por goteo dentro del chorro de retorno de la recirculación, que lo dispersa antes de que alcance el electrodo. Las puntas de los tubos quedan fijas uno o dos centímetros por encima de la boca de la manguera: ese hueco de aire rompe el sifón en las dos descargas, y además T3 y T4 se sitúan por debajo del nivel de líquido de T1. El volumen de partida se fija contra la marca de 10\,L, que se verifica y se anota en la bitácora antes del pre-despojo, junto con todo lo que se añade al lote después. La marca no detecta fugas durante la corrida, a diferencia de un sensor de nivel: al final de cada corrida se inspecciona el banco. Una válvula de vaciado en el fondo de T1, su única perforación bajo el nivel de líquido, permite preparar el lote siguiente.
+
+La sonda de pH se monta en T1, nunca en la línea de recirculación, donde vería el bolo sin mezclar. Va sujeta al bastidor, sumergida un tercio de su longitud (unos 62\,mm de 185) e inclinada al menos 15° respecto de la horizontal, con la punta hacia abajo, como indica el fabricante [57]; el tramo que la sostiene tiene tres profundidades marcadas. Se retira hacia arriba sin vaciar T1, para calibrarla y guardarla con la punta en cloruro de potasio de 3,5\,mol/L. El cabezal de cada bomba queda accesible para cambiar el tubo, y cambiar la punta o la altura de descarga obliga a repetir la gravimetría. Con los depósitos llenos, las bombas y el gabinete, el bastidor soporta unos 20\,kg.
+
+\subsubsection{Selección del material del bastidor}\label{sec:bastidor}
+El material se elige con el método de Ashby (apartado~\ref{sec:materiales}). La función del bastidor es sostener los depósitos, las bombas, las sondas y el gabinete, y fijar sus alturas relativas. Las restricciones son tres: la flecha de los travesaños debe ser menor que 1\,mm bajo la carga, muy por debajo de la holgura de las puntas de goteo; el material debe resistir las salpicaduras de los reactivos de hasta 1\,N, y el bastidor debe armarse con herramientas de mano. El objetivo es el costo mínimo, y las variables libres, el material y la sección comercial. El filtrado por resistencia química (tabla~\ref{tab:compat}) descarta el aluminio y el acero inoxidable 304, y la tabla~\ref{tab:candidatos} ordena los tres candidatos que pasan por el índice de una viga rígida y ligera, $E^{1/2}/\rho$.
+
+\tabla{tab:candidatos}{tab09.pdf}{Candidatos que pasan el filtrado y su índice de material}
+
+En el banco, sin embargo, la rigidez no limita. Un travesaño de tubo de PVC de presión de 1 pulgada, de 33,40\,mm de diámetro exterior y 4,55\,mm de espesor [76], tiene un momento de inercia $I=\pi(D^4-d^4)/64\approx44\,000$\,mm$^4$. Con 40\,cm entre apoyos y la mitad del peso de T1 lleno, unos 59\,N, aplicada en el centro, se flecta
+\begin{equation}
+\delta=\frac{F\,L^3}{48\,E\,I}\approx0{,}65\ \text{mm}\label{eq:flecha}
+\end{equation}
+con $E=2{,}76$\,GPa, por debajo del milímetro de la restricción. Como el material peor clasificado ya cumple con holgura, deciden el objetivo y la documentación: el PVC rígido de presión se fabrica en el país con una amplia gama de accesorios, se corta con sierra y se rosca a mano [76], mientras que el polipropileno de la ficha consultada es un semielaborado para tanques y equipos [74]. El bastidor se arma con tubo y accesorios de PVC rígido de presión de 1 pulgada; los recipientes son de polietileno o de polipropileno, y la bandeja de contención, de polipropileno o de PVC [69]. La luz de 40\,cm es una hipótesis de partida, y la flecha se recalcula con las medidas del bastidor armado.
+
+% =====================================================================
+\subsection{Construcción y montaje}\label{sec:mont}
+
+El banco se monta y después se pone en marcha por etapas, para que un fallo quede acotado a lo último que se conectó. T1 es un recipiente de grado alimentario, de boca ancha y paredes rectas, con la válvula de vaciado montada en el fondo con un pasamuros estanco. T3 y T4 son botellas de HDPE o polipropileno con tapa perforada para el tubo y venteo; la base diluida se prepara por lotes, con la fecha registrada. Cada bomba de reactivo tiene un tubo de 3,2\,mm de diámetro interior, con un lastre con malla en la succión, hasta el soporte de goteo, que fija las dos puntas, cortadas en bisel, sobre la boca de la manguera de retorno. En el gabinete se montan la placa, los dos controladores de motor sobre una placa perforada con borneras, el módulo de relés, el reductor, el convertidor RS-485 y las fuentes, según el esquema de la figura~\ref{fig:esquema}. Antes de energizar se comprueba la continuidad de cada conexión y que la masa de la sonda de pH quede aislada del resto.
+
+Cada etapa de la puesta en marcha tiene una prueba que debe superarse antes de pasar a la siguiente: (1) la placa sola, conectada por USB; (2) el proyecto del firmware en STM32CubeIDE; (3) la placa grabada, con la consola serie respondiendo; (4) el módulo de relés sin cargas, para confirmar con qué nivel se activa; (5) la sonda de pH, leída por Modbus desde la consola; (6) las bombas dosificadoras, con los comandos de prueba y el límite de corriente ajustado, para comprobar el sentido de giro y que una revolución entrega unos 0,314\,mL, y (7) la bomba de recirculación, con la tensión del reductor fijada. Con todo conectado, se mide la corriente de cada riel y, con las bombas detenidas, se comprueba que no haya fugas ni sifonamiento.
+
+% =====================================================================
+\subsection{Caracterización de la medición}\label{sec:carmed}
+
+El margen de error de la medición del pH se expresa como una incertidumbre expandida $U$, con factor de cobertura $k=2$, según la GUM [39]. Se obtiene con estos ensayos, que se hacen con la sonda en los patrones de la serie GB:
+\begin{enumerate}
+\item Calibración. Al inicio de cada sesión, la sonda se calibra en dos puntos, con el cero en 6,86 y la pendiente en 4,00, según el procedimiento del fabricante [57]. Los patrones en polvo se reconstituyen en alícuotas de 250\,mL, con agua destilada recién abierta.
+\item Verificación independiente. Se lee el patrón 9,18, que nunca entra en la calibración, y la lectura se compara con su valor tabulado a la temperatura registrada. La diferencia es el error de verificación.
+\item Repetibilidad. En cada patrón se toman diez lecturas independientes, retirando y volviendo a sumergir la sonda, y se calcula su desviación típica.
+\item Deriva. Se registra la lectura sobre el patrón 4,00 durante 2\,h; la pendiente de ese registro no debe superar 0,02\,pH/h. Se usa el 4,00 porque el patrón alcalino absorbe CO$_2$ del aire.
+\item Enlace de medición. El firmware cuenta los errores de trama Modbus y anota su tasa en cada medición, con la recirculación parada y en marcha. La tasa no debe superar el 1\,\%, y ningún fallo consecutivo debe impedir completar una decisión. Se compara además, una vez, la lectura media con la bomba en marcha y parada.
+\item Temperatura. La temperatura interna que la sonda reporta por Modbus se compara en todos los ensayos con la del DS18B20. Una diferencia sostenida mayor que $\pm0{,}5$\,°C indicaría que la compensación trabaja con una temperatura errónea.
+\end{enumerate}
+Con esos resultados se construye el presupuesto de incertidumbre, aplicando la ecuación~\eqref{eq:gum}. La repetibilidad entra como contribución de tipo A; el error de verificación, que acota el sesgo de la calibración, la tolerancia del patrón y la resolución, como contribuciones de tipo B, y la compensación térmica, como una contribución acotada por la ventana de temperatura. El resultado se presenta como en la tabla~\ref{tab:presupuesto-u} y se acepta si $U\le0{,}15$\,pH; si resulta mayor, se procede como indica el apartado~\ref{sec:incertidumbre}. La deriva no entra en la suma: se contrasta con su criterio. La dinámica de la sonda no se ensaya por separado, porque queda incluida en la del conjunto tanque-electrodo (apartado~\ref{sec:planta}).
+
+% =====================================================================
+\subsection{Caracterización de las bombas y la dilución}\label{sec:carbom}
+
+Aquí se determina cuánto entrega cada bomba por revolución y cuál es su menor dosis confiable, y con esos datos se elige la dilución del reactivo. Todo se mide pesando lo que entrega la bomba:
+\begin{enumerate}
+\item Gravimetría. Con el tubo, la altura de descarga y la contrapresión fijos y documentados, se pesan 5 niveles de volumen, con 5 repeticiones por nivel y por bomba, en una balanza de 0,01\,g. La pendiente de la recta entre el volumen pesado y las revoluciones es el volumen por revolución, y la relación se acepta como lineal si $R^2\ge0{,}99$. El punto central se repite al inicio y al final de la campaña, para vigilar la fatiga del tubo.
+\item Dosis mínima repetible. Se baja el número de revoluciones nivel a nivel, con 10 pesadas en cada uno, y se calcula el coeficiente de variación una vez descontada la varianza de la balanza: $\sigma^2_{\text{bomba}}=\sigma^2_{\text{medida}}-\sigma^2_{\text{balanza}}$. La dosis mínima repetible es el menor número entero de revoluciones con un coeficiente no superior al 5\,\%.
+\item Factor de dilución. Se multiplica la dosis mínima repetible por la ganancia local máxima dentro del rango objetivo, y se elige la dilución para que el producto no supere $U/2$ (ecuación~\eqref{eq:regla}).
+\end{enumerate}
+La tabla~\ref{tab:regla} hace ese cálculo antes de los ensayos, con los parámetros \emph{a priori}. Sin diluir, una dosis mínima movería 0,21\,pH en la consigna, 3,5 veces más que $U/2$. La regla se exige en todo el rango objetivo, donde manda el punto de mayor ganancia, pH 5,5, que pide $D\ge7{,}7$.
+
+\tabla{tab:regla}{tab10.pdf}{Evaluación a priori de la regla de dimensionamiento, con $\Vmin=0{,}314$\,mL y $U=0{,}12$\,pH}
+
+La dilución tiene también un límite superior: se impone que la mayor corrección prevista, de una unidad de pH, no añada más del 1\,\% del volumen del depósito. Con $D=10$ exige 43,8\,mL, según la curva del modelo, y de ahí resulta $D\le22{,}8$. La ventana admisible es $7{,}7\le D\le22{,}8$, y la dilución de partida, de 1:10, queda dentro. La ventana se cierra si la dosis mínima repetible medida supera 0,93\,mL, es decir, tres revoluciones o más.
+
+% =====================================================================
+\subsection{Modelo de la planta}\label{sec:planta}
+
+La planta se describe primero con el modelo del proceso en MATLAB, abierto al CO$_2$, del que salen la curva de titulación y los parámetros \emph{a priori} con que se dimensionan el banco y el control. Los ensayos de este apartado sustituyen esos valores por los medidos, dentro del tercer objetivo.
+
+\subsubsection{Curva y ganancia que predice el modelo}
+En la solución de este trabajo, con 1,3\,mM de fosfato y el carbonato en equilibrio con el aire, $\beta$ vale $1{,}81\cdot10^{-4}$\,eq/(L·pH) en la consigna, casi todo por el fosfato. La figura~\ref{fig:titulacion} muestra la curva de titulación que predice la ecuación~\eqref{eq:electro} para un lote de 10\,L tras el pre-despojo, con ácido sulfúrico diluido a 0,1\,N: es casi lineal y tendida por encima de la consigna, y muy empinada por debajo de 5,5. La tabla~\ref{tab:beta} da la capacidad tampón y la ganancia local de la ecuación~\eqref{eq:kp}: la ganancia cambia unas 15 veces entre pH 5,0 y 7,0, y 3,5 veces entre la consigna y pH 6,8.
+
+\figura{fig:titulacion}{fig21.pdf}{Curva de titulación y ganancia local predichas por el modelo}{Curva de titulación y ganancia local del proceso predichas por el modelo para 10\,L de solución nutritiva tras el pre-despojo, con ácido sulfúrico 0,1\,N. (a) pH frente al volumen de ácido añadido, con el rango objetivo sombreado. (b) Ganancia local $K_p=|d\mathrm{pH}/dV|$ frente al pH, en escala logarítmica. Parámetros \emph{a priori}; la curva real se mide al caracterizar la planta. Elaborado por los autores (A. Morocho y K. Toledo, MATLAB, 2026).}
+
+\tabla{tab:beta}{tab11.pdf}{Capacidad tampón y ganancia local del proceso predichas por el modelo}
+
+\subsubsection{Curva de titulación}\label{sec:barridos}
+La curva que se graba en el firmware se mide con dos barridos completos de ida y vuelta, cada uno sobre un lote fresco. El lote se lleva a pH 7,1 y se titula hacia abajo con ácido hasta pH 5,0; sin cambiar de lote, se titula hacia arriba con base hasta 7,0. Tras cada dosis se espera al menos $5\tau+\theta$. Cada bomba cubre así el rango de caracterización, de 5,0 a 7,0, que contiene el tramo en que trabaja el control, de 5,4 a 6,8. Antes de los barridos se hace un ensayo piloto de titulación, sobre un lote propio, en el que se comprueban la mezcla, que el reactivo calculado con la curva coincide con el que hace falta y el criterio de ajuste del modelo dinámico.
+
+Cada dosis se dimensiona para mover el pH unas 0,10 unidades: el controlador interpola el volumen acumulado, y el error de esa tabla lo fija el ruido de la lectura, no el paso. Un barrido tiene 42 dosis y dura unas 8,6\,h, de modo que cabe en una jornada de laboratorio. Los barridos son automáticos, con la capa de seguridad activa, y se detienen si la temperatura sale de la ventana. Hay tres pausas de 30 minutos sin dosificar (al empezar, al cambiar de rama y al terminar), que miden la deriva de la sonda junto con la desgasificación, que se descuenta de la curva. La ganancia local se estima por regresión local centrada, con la misma ventana de $\pm0{,}15$\,pH en las dos ramas, y la curva que se graba es la media de los dos barridos. La razón entre las ganancias de las dos bombas cerca de la consigna se informa de forma descriptiva.
+
+\subsubsection{Dinámica e identificación}\label{sec:ident}
+No se hacen ensayos de escalón aparte: cada dosis de la titulación es una entrada de volumen conocido, y su respuesta, registrada cada 10\,s durante la espera, basta para ajustar el modelo de la ecuación~\eqref{eq:fopdt}. El ajuste toma como entrada el caudal de la bomba durante la duración registrada de la dosis, y es conjunto: un mismo $\theta$ y un mismo $\tau$ por bomba para todas las dosis de un barrido. Esas lecturas se toman con la recirculación en marcha, porque apagarla cambiaría la mezcla que se quiere identificar; la lectura que decide la dosis siguiente se toma con ella apagada, como en las corridas. El modelo se ajusta con las dosis de un barrido y se valida con las del otro: se acepta si el índice de la ecuación~\eqref{eq:fit} llega al 80\,\% sobre el barrido de validación y los residuos tienen media próxima a cero y no presentan estructura.
+
+Con los dos parámetros se fija la espera entre dosis, $\theta+3\tau$. Con los valores \emph{a priori} de la cascada, 15\,s de retardo de transporte y $90+13$\,s de constantes de mezcla y de electrodo, resultan unos 324\,s, el valor fijado en el firmware; con el primer orden identificado sobre ella, de 27,6 y 98,0\,s, 322\,s. Al cabo de ese tiempo la respuesta ha recorrido el 96\,\% de su valor final (figura~\ref{fig:respuesta}), y con $\theta+5\tau$, el 99,6\,\%.
+
+\figura{fig:respuesta}{fig22.pdf}{Respuesta normalizada a una dosis según el modelo del banco}{Respuesta normalizada a una dosis según el modelo del banco: cascada de transporte (15\,s), mezcla (90\,s) y electrodo (13\,s), frente al primer orden con retardo identificado sobre ella ($\theta=27{,}6$\,s, $\tau=98{,}0$\,s), con los puntos del 28,3 y el 63,2\,\% del método de dos puntos. La línea vertical marca el periodo de decisión, al que la cascada ha recorrido el 96\,\% de su valor final. Parámetros \emph{a priori}. Elaborado por los autores (A. Morocho y K. Toledo, MATLAB, 2026).}
+
+\subsubsection{Comprobación de la mezcla y de la regla de dimensionamiento}\label{sec:comprobacion}
+Cada medición solo vale si la solución está mezclada cuando se lee. En el ensayo piloto se aplica tres veces la misma dosis de ácido con la sonda en cada una de sus tres profundidades marcadas. La mezcla se considera adecuada si el cambio final de pH coincide en las tres profundidades dentro de $U$ y si, al cumplirse la espera, la lectura ha recorrido al menos el 95\,\% de ese cambio; si no, se alarga la espera o se aumenta el caudal de recirculación antes de la campaña.
+
+La regla de la ecuación~\eqref{eq:regla} se comprueba de dos formas. Con los valores medidos: se multiplica la dosis mínima repetible por la ganancia local de la curva en cada punto del rango objetivo, y el producto se compara con $U/2$; si lo supera, se diluye más el reactivo dentro de la ventana admisible y se repite la comprobación. Y en los ensayos de validación: las dos bombas no deben alternarse en ninguna corrida, y el pH alcanzado tras cada dosis debe coincidir, dentro de $U$, con el que predice la curva.
+
+% =====================================================================
+\subsection{Diseño del control}\label{sec:control}
+
+El control es el de demanda de reactivo con rango dividido y zona muerta (apartado~\ref{sec:demanda}). Aquí se fijan sus parámetros, se describe el ciclo que ejecuta el firmware y se da la predicción que sirve de referencia a la validación.
+
+\subsubsection{Zona muerta y ciclo de control}\label{sec:ciclo}
+La zona muerta se fija en $\delta=0{,}25$\,pH a cada lado de la consigna, el centro del intervalo admisible de la ecuación~\eqref{eq:banda} [51]. Ese valor es admisible para cualquier $U\le0{,}25$, y puede declararse antes de caracterizar la medición. La figura~\ref{fig:ciclo} muestra el ciclo que el firmware repite durante la corrida:
+\begin{enumerate}
+\item Inicio. El operador arranca la corrida con una pulsación larga del pulsador B1, después de inyectar el bolo o de cambiar la consigna.
+\item Asentamiento. La recirculación queda en marcha durante la espera $\theta+3\tau$.
+\item Lectura. El firmware apaga la recirculación y lee el pH y la temperatura. Sin una lectura válida no decide ni dosifica, y si pasa un minuto seguido sin ella pasa al estado de fallo (S4).
+\item Efecto de la dosis anterior. Si en el ciclo anterior hubo una dosis, suma su volumen al acumulado de esa bomba y compara el cambio de pH que produjo con el que predice la curva (S5).
+\item Fallos. Si la lectura está fuera del rango físico o se queda estática dentro de la zona muerta (S4), o si la dosis anterior no tuvo efecto (S5), pasa al estado de fallo y detiene las bombas.
+\item Zona muerta. Si $|e|\le\delta$, con $e=\pHm{medido}-\pHm{consigna}$, no se dosifica: se espera otro periodo con la recirculación apagada. Cuando el pH lleva 30 minutos seguidos dentro de la zona muerta, se registra el fin de la corrida.
+\item Elección de la bomba y cálculo del volumen. Fuera de la zona muerta actúa la bomba de ácido si $e>\delta$ y la de base si $e<-\delta$, nunca las dos a la vez, con el volumen de la ecuación~\eqref{eq:vcmd} y $\gamma=0{,}70$. Por ejemplo, tras el bolo de los ensayos el pH medido es 6,80; la curva del modelo indica 30,4\,mL de ácido hasta la consigna, y el 70\,\% son 21,3\,mL si $\klote=1$.
+\item Redondeo. El volumen se pasa a revoluciones completas: 21,3\,mL son 68 revoluciones. Si lo calculado no llega a media revolución, no se dosifica.
+\item Límite acumulado. Si esa bomba ha dosificado más de 250\,mL en la última hora (S2), el firmware pasa al estado de fallo.
+\item Dosificación. La bomba gira las revoluciones calculadas, con la recirculación en marcha y solo si la otra bomba está detenida, y el ciclo vuelve al asentamiento.
+\end{enumerate}
+Si una dosis dejara el pH al otro lado de la zona muerta, actuaría la bomba contraria con las mismas condiciones. Ese caso se registra, porque es el comportamiento que se quiere evitar.
+
+\begin{figure}[H]\centering
+\includegraphics[scale=0.92]{figuras/fig23.pdf}
+\caption[Diagrama de flujo del ciclo de control durante la corrida]{Diagrama de flujo del ciclo de control durante la corrida, en el orden en que el firmware hace las comprobaciones. El error $e$ es el pH medido menos la consigna, y $V_{\text{cmd}}$, el volumen de la ecuación~\eqref{eq:vcmd}. S2, S4 y S5 son mecanismos de la capa de seguridad (tabla~\ref{tab:seguridad}). Se omiten la autocalibración del lote y el modo de barrido. Elaborado por los autores (A. Morocho y K. Toledo, TikZ, 2026).}\label{fig:ciclo}
+\end{figure}
+
+\subsubsection{Autocalibración de la curva y protección frente a una corrección excesiva}\label{sec:autocal}
+La curva se mide sobre unos lotes y se usa sobre otros, que pueden tener algo más o algo menos de fosfato. Por eso se reajusta al preparar cada lote: el reajuste a la consigna tras el pre-despojo lo hace la bomba de ácido con un volumen conocido $V_{\text{cal}}$, y se mide el pH antes y después, ya asentado. El factor que reescala la curva es
+\begin{equation}
+\klote=\frac{\sum V_{\text{cal}}}{\sum\bigl(\bigl|\mathcal V(\pHm{antes})-\mathcal V(\pHm{después})\bigr|+\Delta V_{\text{carb}}\bigr)}\label{eq:klote}
+\end{equation}
+El término $\Delta V_{\text{carb}}$ descuenta el ácido que consume el bicarbonato en equilibrio con el aire al bajar de la meseta del despojo a la consigna; sin él, el factor saldría sesgado al alza entre un 3,6 y un 6,4\,\%. La calibración recorre casi el mismo tramo de pH que el control, así que el sesgo de la sonda se cancela en buena parte. Con la bomba de ácido se cancela también el error sistemático del volumen por revolución, pero no con la de base, y el modelo prevé un error de dosis de alrededor del 3\,\%.
+
+Una dosis excesiva solo podría compensarse con el reactivo contrario, y el control lo evita de cuatro formas: aplica el 70\,\% de lo calculado, reajusta la curva en cada lote, no extrapola la curva fuera del rango en que se midió y acota con el límite acumulado lo que puede dosificarse en una hora. La fracción de 0,70 se eligió comparándola en el modelo con la dosis completa, que ahorra unos 5 minutos por corrida pero cruza la zona muerta mucho más a menudo si falla el reajuste del lote. Si en el ensayo piloto la cantidad calculada difiere en más de un 5\,\% de la que hizo falta, la fracción se reduce.
+
+\subsubsection{Simulación}\label{sec:simulacion}
+Antes de implementarlo, el control se simula en MATLAB sobre el modelo del proceso. Con los parámetros \emph{a priori}, corrige la perturbación de los ensayos con dos dosis y unos 28\,mL de ácido; los demás valores esperados están en la tabla~\ref{tab:criterios}. La figura~\ref{fig:leyes} compara la ley por demanda con una de ganancia fija, sintonizada con la ganancia de la consigna y con $\gamma=1$: a pH 6,8, la ganancia fija pide 14,4\,mL donde la curva indica 30,4\,mL. Según el modelo, un PID sintonizado así necesitaría de tres a cuatro dosis para corregir esa perturbación, frente a las dos del control propuesto.
+
+\figura{fig:leyes}{fig24.pdf}{Volumen que pide cada ley de control en función del pH medido}{Volumen que pide cada ley de control en función del pH medido, con la zona muerta de semiancho 0,25\,pH. La ley por demanda lee de la curva de titulación el volumen hasta la consigna y aplica el 70\,\% de esa demanda; la ganancia fija divide el error por la ganancia de la consigna. Por encima de la consigna, en la región tamponada por el fosfato, la ganancia fija pide bastante menos de lo necesario; por debajo, bastante más. Parámetros \emph{a priori}. Elaborado por los autores (A. Morocho y K. Toledo, MATLAB, 2026).}
+
+% =====================================================================
+\subsection{Implementación en el firmware}\label{sec:fw}
+
+El control se implementa en la placa y se verifica que el firmware decide lo mismo que el modelo. Los resultados son el firmware verificado y la capa de seguridad probada, con los que se completa el tercer objetivo.
+
+\subsubsection{Estructura del firmware y secuencia de operación}\label{sec:estructura}
+El firmware se escribe en C con STM32CubeIDE para la placa Nucleo-G474RE, sin sistema operativo, como un bucle principal con la máquina de estados de la figura~\ref{fig:estados}. La ley de control, la capa de seguridad y la autocalibración del lote se escriben como funciones puras, sin la capa de abstracción del fabricante, y pueden verificarse fuera de la placa. La curva de titulación entra como una tabla generada desde el modelo en MATLAB, que se regenera con la curva medida antes de la campaña. Los demás parámetros se fijan al compilar, a partir de las caracterizaciones, y no cambian durante una corrida; solo cambian entre corridas el factor $\klote$ y la consigna de los escalones, que el operador elige por la consola, lo mismo que la ley de dosis fija de las corridas de referencia.
+
+El prototipo opera por lotes. La preparación del lote y el pre-despojo son manuales y supervisados; la autocalibración reajusta el lote a la consigna y calcula $\klote$, y la corrida es autónoma hasta que el pH lleva 30 minutos seguidos dentro de la zona muerta. Los estados del firmware son el reposo, los de la corrida, los tres equivalentes de la autocalibración y el de fallo, que es terminal: las bombas quedan detenidas y solo se sale de él reiniciando la corrida tras diagnosticar la causa, de modo que un fallo invalida la corrida y queda registrado.
+
+\figura{fig:estados}{fig25.pdf}{Estados del firmware y eventos que llevan de uno a otro}{Estados del firmware y eventos que llevan de uno a otro. Una pulsación corta del pulsador B1 lanza una pasada de autocalibración del lote, que vuelve al reposo con el factor $\klote$, o sin dosificar si el lote ya está en la consigna; una pulsación larga arranca la corrida tras el bolo de perturbación o el cambio de consigna, y otra, tras el fin de corrida, vuelve al reposo. Los tiempos son los fijados en el firmware. Se omiten las órdenes de la consola en el reposo. Elaborado por los autores (A. Morocho y K. Toledo, TikZ, 2026).}
+
+\subsubsection{Interfaz, registro y almacenamiento de datos}\label{sec:registro}
+La interfaz con el operador es mínima: el pulsador de la placa arranca las fases que requieren una decisión humana, y las variables se visualizan y se registran por una consola serie, a través del puerto serie virtual del depurador. En cada medición se registran el pH, las dos temperaturas, el tiempo de la corrida y la tasa de tramas erróneas; en cada dosis, la vía, el número de revoluciones y los volúmenes acumulados, y cada cambio de estado o fallo, con su causa. La consola es también la única señalización, porque el prototipo no lleva indicadores luminosos ni sonoros.
+
+Un programa de terminal en el computador, PuTTY, guarda en un archivo de texto todo lo que la consola imprime. Ese archivo es el dato bruto, y se trata con los criterios habituales de integridad de los datos [53]: se identifica por su fecha, su lote y su sesión, se conserva sin modificar y se respalda en un segundo soporte al terminar cada sesión, junto con la bitácora de preparación del lote. Una lectura perdida queda registrada como tal, y una corrida invalidada se conserva con su causa. Los resultados se calculan con programas de análisis a partir de los archivos originales, de modo que el cálculo puede repetirse.
+
+\subsubsection{Verificación del firmware}\label{sec:verif}
+La ley de control se verifica contra el modelo antes de usarla en el banco. Un programa reproduce el código que se compila, con la misma aritmética de coma flotante de 32 bits, y compara sus decisiones con las de los controladores del modelo sobre una misma secuencia de lecturas: se aprueba si coinciden la bomba elegida y el número de revoluciones en todas ellas. En el banco, cada etapa de la puesta en marcha prueba los periféricos que conecta, y durante los ensayos el firmware registra el instante de cada decisión con el reloj real de la corrida. Para la titulación hay un modo de barrido automático, cuya secuencia se contrasta también con la del modelo: deben coincidir las ramas, las pausas y el número de dosis, y las revoluciones de cada dosis no deben diferir en más de una.
+
+\subsubsection{Capa de seguridad}\label{sec:seg}
+Sobre la ley de control se superpone una capa de seguridad independiente de ella, porque el banco dosifica sustancias corrosivas con actuadores de 24\,V junto a un volumen de líquido. La tabla~\ref{tab:seguridad} resume sus mecanismos; todos se verifican por inyección deliberada de fallos, con el criterio de detectar el 100\,\% de los fallos inyectados.
+
+\tabla{tab:seguridad}{tab12.pdf}{Mecanismos de la capa de seguridad}
+
+Dos salvaguardas son delicadas de dimensionar, por la ganancia variable del proceso. El límite de volumen acumulado (S2) debe quedar por encima de la máxima demanda legítima que predice la curva, o abortaría corridas válidas. La detección de dosificación sin efecto (S5) no puede exigir que cada dosis desplace el pH por encima de un umbral fijo, porque en la región tamponada una dosis correcta no lo alcanza. Por eso S5 acumula el desplazamiento esperado según la curva,
+\begin{equation}
+\text{esperado}=\sum_i V_i\left|\frac{d\mathrm{pH}}{dV}\right|_{\text{curva}}(\mathrm{pH}_i)\label{eq:esperado}
+\end{equation}
+y solo emite juicio cuando ese esperado supera $U/2$: si entonces el desplazamiento observado no llega a la mitad del esperado, declara el fallo. En la comprobación del firmware frente al modelo, sin hardware, no hubo falsas alarmas en 18 corridas con el equipo sano y se detectaron los 18 depósitos vacíos.
+
+% =====================================================================
+\subsection{Pruebas de validación y análisis de datos}\label{sec:val}
+
+La validación responde al cuarto objetivo. Se hace con dos ensayos distintos, la corrección de una perturbación y el cambio de consigna, y con una ley de dosis fija que sirve de referencia.
+
+\subsubsection{Enfoque y variables}\label{sec:variables}
+El enfoque es cuantitativo, y el trabajo es una investigación aplicada, orientada al desarrollo tecnológico: aplica el presupuesto de incertidumbre [39], la identificación de sistemas [43] y el control por rango dividido [14, págs. 184–186] a un régimen de operación que no se encontró caracterizado en los documentos revisados. Se manipulan tres variables independientes: la perturbación estandarizada, en sus dos sentidos; la consigna, en los escalones de las dos direcciones, y la ley de control, que es la propuesta en todas las corridas salvo en las dos de referencia. Las variables dependientes se agrupan por lo que miden:
+\begin{itemize}
+\item Del control: error respecto de la consigna en régimen permanente (pH), consumo de ácido y de base (mL), número de dosis, tiempo de estabilización (s) y porcentaje de tiempo en rango.
+\item Del proceso y del actuador: ganancia local por vía (pH/mL), dosis mínima repetible (mL), retardo $\theta$ y constante de tiempo $\tau$ (s).
+\item De la medición: incertidumbre expandida $U$ (pH), ruido de la cadena (pH) y tasa de error de trama (\%).
+\end{itemize}
+Se mantienen controlados el volumen del depósito, la temperatura dentro de la ventana declarada, la composición de la solución, el caudal de recirculación, la dilución del reactivo, los parámetros del controlador y la posición de la sonda y del punto de inyección. El agua de preparación es de red, de una única fuente y de alcalinidad no medida, y de cada lote se registra el ácido que consume el pre-despojo. La temperatura se registra y no se manipula (apartado~\ref{sec:desempeno}).
+
+\subsubsection{Ensayos de desempeño del control}\label{sec:ensayos}
+El desempeño se valida con 14 corridas en 6 sesiones (tabla~\ref{tab:plan}). Una sesión es una jornada de ensayos con su propia calibración de la sonda, que se verifica en el patrón 9,18 al abrir y al cerrar. Todas empiezan igual: vaciado y enjuague, preparación del lote fresco, pre-despojo y autocalibración de la curva; las dosis de esa preparación no se cuentan en las corridas.
+
+\tabla{tab:plan}{tab13.pdf}{Plan de corridas de la validación}
+
+En las sesiones 1 a 3 se hacen las 6 corridas de perturbación, dos por sesión sobre el mismo lote. La perturbación es un bolo de KOH 0,1\,N de un lote único, de unos 30\,mL según el modelo, que lleva la solución de la consigna a pH 6,80 y se inyecta a mano con jeringa graduada, en un punto y un instante fijos. Su dirección es la habitual en hidroponía [31], y la corrige la bomba de ácido. Entre las dos corridas de una sesión, el lote se reajusta a 6,00 sin repetir el pre-despojo ni la autocalibración. Se reparten en tres sesiones porque todas las corridas de una sesión comparten el sesgo de su calibración: con dos por sesión se compara la dispersión dentro de una sesión con la que hay entre sesiones.
+
+La sesión 4 se dedica al cambio de consigna: dos escalones de 6,00 a 6,30, que ejercitan la bomba de base, y dos de 6,00 a 5,70, con la de ácido. El escalón supera la zona muerta en solo 0,05\,pH, así que antes de arrancar se exige que el pH esté a no más de 0,03\,pH de 6,00, y el lote se reajusta a 6,00 antes del escalón siguiente. Según el modelo, cada escalón provoca una sola dosis; uno que no provoca ninguna se invalida y se repite.
+
+La sesión 5 repite el ensayo de perturbación en el sentido contrario, con un bolo de H$_2$SO$_4$ 0,1\,N de unos 6,5\,mL, que lleva el lote a pH 5,40 y que la bomba de base corrige con una sola dosis de unos 4,5\,mL. El bolo no se lleva más abajo porque por debajo de pH 5,5 la solución apenas tampona: con la variación prevista entre lotes, la primera lectura queda entre 5,1 y 5,7, y la corrida se invalida si queda por debajo de 5,0.
+
+La sesión 6 da el caso de referencia: dos corridas de la misma perturbación de las sesiones 1 a 3 con una ley de dosis fija, en la que la bomba que indica el signo del error entrega siempre el mismo volumen. Todo lo demás es común con el control propuesto. El tamaño se fija antes de los ensayos con un criterio declarado: la mayor dosis, en revoluciones enteras, que no puede cruzar la zona muerta donde la ganancia es mayor. Con la ganancia del modelo en pH 5,5 son 11 revoluciones (3,45\,mL), y se recalcula con la curva medida. Es la forma más simple de dosificar con realimentación (tabla~\ref{tab:metodos}), y no reproduce ningún equipo comercial. Según el modelo, corrige la perturbación con unas 8 dosis en lugar de 2 y tarda algo más del doble, con un consumo parecido.
+
+La corrida termina cuando el pH medido lleva 30 minutos seguidos dentro de la zona muerta sin dosificar. El tiempo de estabilización, que es el indicador, va desde la perturbación o el escalón hasta que el pH entra en la zona muerta y se queda en ella; la duración de la corrida le suma la permanencia que confirma el fin, y solo sirve para planificar las sesiones. Cada corrida es además la demostración funcional del prototipo, que tras la preparación manual del lote mide, decide, dosifica y espera sin intervención.
+
+\subsubsection{Indicadores y criterios de aceptación}\label{sec:criterios}
+Los indicadores son los de la tabla~\ref{tab:indicadores}, y todos se calculan hasta el fin de cada corrida. Los criterios de aceptación (tabla~\ref{tab:criterios}) se aplican al control propuesto y son de cumple o no cumple; las corridas de dosis fija no llevan criterio. Los valores esperados se calculan con la curva de titulación y la espera, y antes de la campaña se recalculan con los valores medidos.
+
+\tabla{tab:indicadores}{tab14.pdf}{Indicadores con los que se valida el desempeño del prototipo}
+
+\tabla{tab:criterios}{tab15.pdf}{Criterios de aceptación de la validación y valores esperados \emph{a priori}, según el modelo}
+
+Estos criterios son una propuesta propia de este trabajo. El diseño no prevé fallos ni que actúe la bomba contraria, así que una sola corrida con cualquiera de los dos indica que algo no funciona como se diseñó. Una dosis de más es la forma prevista de completar la corrección cuando el lote responde menos de lo esperado; dos o más indicarían que lo calculado no corresponde a la solución. El error de pH se cumple por construcción en toda corrida que termina, y no se exige que sea menor que $U$, porque el controlador no actúa dentro de la zona muerta. El tiempo y el consumo dependen sobre todo de la solución: una diferencia grande respecto de lo esperado se informa y se explica, sin calificarla de incumplimiento. Hay dos defectos que estos criterios no detectan, porque con ellos el pH igual entra en la zona muerta: un reajuste fallido del lote, que se comprueba con el valor de $\klote$ registrado, y una base de concentración distinta de la declarada.
+
+\subsubsection{Repeticiones y condiciones para invalidar un ensayo}\label{sec:repeticiones}
+La tabla~\ref{tab:repeticiones} da las repeticiones de los ensayos de caracterización; las de la validación están en la tabla~\ref{tab:plan}.
+
+\tabla{tab:repeticiones}{tab16.pdf}{Repeticiones por condición de ensayo}
+
+Una corrida se detiene o se invalida, y se repite dentro de la reserva del cronograma, en estos casos: (1) la capa de seguridad declara un fallo; (2) el operador desenchufa el banco ante un peligro, o ve una fuga o un derrame; (3) la temperatura registrada sale de la ventana de $22\pm3$\,°C; (4) a las 4\,h la corrida no ha terminado; (5) en la perturbación hacia la base, la primera lectura tras el bolo queda por debajo de 5,0, y (6) al cerrar la sesión, la lectura en el patrón 9,18 difiere de su valor tabulado en más de $U$, en cuyo caso se invalidan las corridas de esa sesión. Una corrida invalidada se conserva en el registro con su causa: repetirla completa las repeticiones, pero no borra el fallo, que cuenta como incumplimiento si la capa de seguridad lo declaró sin una causa ajena al control comprobada. Los reactivos se preparan y se trasvasan con gafas, guantes y bata, y las soluciones usadas se desechan según el procedimiento del laboratorio.
+
+\subsubsection{Marco estadístico}\label{sec:estadistica}
+La validación no descansa en un solo ensayo: las curvas de titulación de los dos barridos deben coincidir dentro de $U$, el modelo dinámico se ajusta con un barrido y se valida con el otro, y el consumo que contabiliza el firmware se verifica por gravimetría en cada sesión. Los datos de todos los ensayos se analizan como indica la tabla~\ref{tab:estadistica}.
+
+\tabla{tab:estadistica}{tab17.pdf}{Marco estadístico aplicable a todo el trabajo}
